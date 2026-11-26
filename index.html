@@ -424,36 +424,13 @@
           <label>签约日期</label>
           <input type="date" id="pDate">
         </div>
-        <div class="form-section-title">筹建节点日期（可留空，后续补填）</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>踏勘日期</label>
-            <input type="date" id="pSurvey">
-          </div>
-          <div class="form-group">
-            <label>弱电施工日期</label>
-            <input type="date" id="pWeakStart">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>设备发货日期</label>
-            <input type="date" id="pShip">
-          </div>
-          <div class="form-group">
-            <label>弱电完工日期</label>
-            <input type="date" id="pWeakDone">
-          </div>
-        </div>
-        <div class="form-group">
-          <label>筹建完工日期</label>
-          <input type="date" id="pFinish">
-        </div>
+        <div class="form-section-title">项目节点日期（可留空，后续补填；节点可在 ⚙ 里按行业配置）</div>
+        <div id="milestoneFields" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"></div>
         <div class="form-group">
           <label>备注</label>
           <textarea id="pNote" rows="3" placeholder="房间数、预计开业时间等"></textarea>
         </div>
-        <button class="btn btn-link" onclick="openOptions()">⚙ 增删改状态 / 筹建经理</button>
+        <button class="btn btn-link" onclick="openOptions()">⚙ 增删改状态 / 经理 / 节点</button>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal()">取消</button>
@@ -483,6 +460,20 @@
             <input type="text" id="newManagerName" placeholder="新增筹建经理姓名">
             <button class="btn btn-primary" style="flex-shrink:0;" onclick="addManager()">添加</button>
           </div>
+        </div>
+        <div class="opt-section">
+          <div class="opt-title">项目节点</div>
+          <div id="milestoneOptList"></div>
+          <div class="opt-add">
+            <input type="text" id="newMilestoneName" placeholder="新增节点，如：进场装修 / 验收">
+            <button class="btn btn-primary" style="flex-shrink:0;" onclick="addMilestone()">添加</button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
+            <button class="btn btn-secondary" onclick="applyMilestonePreset('hotel')">酒店 / 网吧</button>
+            <button class="btn btn-secondary" onclick="applyMilestonePreset('fnb')">餐饮 / 奶茶</button>
+            <button class="btn btn-secondary" onclick="applyMilestonePreset('retail')">零售 / 便利店</button>
+          </div>
+          <div class="opt-hint" style="margin-top:8px;">套用预设会替换节点列表，但项目上已填的日期不会丢；把节点加回来就能重新看到。</div>
         </div>
         <div class="opt-hint">
           · 地图上同时显示两种信息，互不冲突：<b>圆圈颜色</b>是一种维度，<b>圆圈内的字</b>是另一种（点工具栏「着色：状态 / 筹建经理」可互换主次）。<br>
@@ -653,22 +644,76 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
 
     /* 筹建节点日期：key 存进项目对象，id 对应表单输入框，label 用于展示。
        新增节点只要在这里加一行，并在表单里补一个 input 即可。 */
-    const MILESTONES = [
-      { key: 'surveyDate', id: 'pSurvey',    label: '踏勘日期' },
-      { key: 'weakStart',  id: 'pWeakStart', label: '弱电施工日期' },
-      { key: 'shipDate',   id: 'pShip',      label: '设备发货日期' },
-      { key: 'weakDone',   id: 'pWeakDone',  label: '弱电完工日期' },
-      { key: 'finishDate', id: 'pFinish',    label: '筹建完工日期' }
-    ];
+    /* 项目节点：可配置。按行业预设一键切换，也可自行增删改排序。 */
+    const K_MILESTONES = 'hotel_dev_milestones';
+    const INDUSTRY_PRESETS = {
+      hotel: { name: '酒店 / 网吧', items: [
+        { key: 'surveyDate', label: '踏勘日期' },
+        { key: 'weakStart',  label: '弱电施工日期' },
+        { key: 'shipDate',   label: '设备发货日期' },
+        { key: 'weakDone',   label: '弱电完工日期' },
+        { key: 'finishDate', label: '筹建完工日期' }
+      ]},
+      fnb: { name: '餐饮 / 奶茶', items: [
+        { key: 'designDate', label: '设计定稿日期' },
+        { key: 'buildStart', label: '进场装修日期' },
+        { key: 'equipDate',  label: '设备进场日期' },
+        { key: 'acceptDate', label: '验收日期' },
+        { key: 'openDate',   label: '开业日期' }
+      ]},
+      retail: { name: '零售 / 便利店', items: [
+        { key: 'siteDate',   label: '选址确认日期' },
+        { key: 'designDate', label: '设计定稿日期' },
+        { key: 'buildStart', label: '装修进场日期' },
+        { key: 'shelfDate',  label: '货架进场日期' },
+        { key: 'openDate',   label: '开业日期' }
+      ]}
+    };
+    const DEFAULT_MILESTONES = JSON.parse(JSON.stringify(INDUSTRY_PRESETS.hotel.items));
+    let milestones = JSON.parse(JSON.stringify(DEFAULT_MILESTONES));
+
+    function loadMilestones() {
+      try {
+        const raw = localStorage.getItem(K_MILESTONES);
+        const arr = raw ? JSON.parse(raw) : null;
+        milestones = (Array.isArray(arr) && arr.length) ? arr : JSON.parse(JSON.stringify(DEFAULT_MILESTONES));
+      } catch (e) { milestones = JSON.parse(JSON.stringify(DEFAULT_MILESTONES)); }
+    }
+    function saveMilestones() {
+      try { localStorage.setItem(K_MILESTONES, JSON.stringify(milestones)); } catch (e) {}
+    }
+
     function milestoneText(p) {
       if (!p) return '';
-      return MILESTONES.filter(m => p[m.key])
+      return milestones.filter(m => p[m.key])
         .map(m => m.label.replace('日期', '') + ' ' + p[m.key]).join(' · ');
+    }
+
+    /* 按当前节点配置动态生成项目表单里的日期字段 */
+    function renderMilestoneFields() {
+      const box = document.getElementById('milestoneFields');
+      if (!box) return;
+      if (!milestones.length) {
+        box.innerHTML = '<div class="opt-hint">还没有配置节点，点右上角 ⚙ 添加，或套用行业预设。</div>';
+        return;
+      }
+      box.innerHTML = milestones.map(m =>
+        `<div class="form-group">
+           <label>${esc(m.label)}</label>
+           <input type="date" data-mkey="${esc(m.key)}">
+         </div>`).join('');
     }
     function readMilestones() {
       const out = {};
-      MILESTONES.forEach(m => { out[m.key] = document.getElementById(m.id).value; });
+      document.querySelectorAll('#milestoneFields input[data-mkey]').forEach(el => {
+        out[el.getAttribute('data-mkey')] = el.value || '';
+      });
       return out;
+    }
+    function fillMilestoneFields(p) {
+      document.querySelectorAll('#milestoneFields input[data-mkey]').forEach(el => {
+        el.value = (p && p[el.getAttribute('data-mkey')]) || '';
+      });
     }
 
     let DEFAULT_PROJECTS = [
@@ -1036,6 +1081,9 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
         : m);
       if (!savedM) localStorage.setItem(K_MANAGERS, JSON.stringify(managers));
       migrateManagerColors();
+
+      loadMilestones();
+      renderMilestoneFields();
     }
 
     // 迁移旧配色（v1 / v2）→ 当前配色，按位次映射，只跑一次
@@ -2009,6 +2057,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
       curLocLabel = null;
       document.getElementById('suggestBox').innerHTML = '';
       renderSelects();
+      renderMilestoneFields();
 
       if (id) {
         const p = projects.find(x => x.id === id);
@@ -2020,7 +2069,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
         document.getElementById('pManager').value = p.manager || '';
         document.getElementById('pDate').value = p.date;
         document.getElementById('pNote').value = p.note || '';
-        MILESTONES.forEach(m => { document.getElementById(m.id).value = p[m.key] || ''; });
+        fillMilestoneFields(p);
         curLocLabel = p.loc || null;
       } else {
         document.getElementById('pLocation').value = '';
@@ -2031,7 +2080,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
         document.getElementById('pManager').value = '';
         document.getElementById('pDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('pNote').value = '';
-        MILESTONES.forEach(m => { document.getElementById(m.id).value = ''; });
+        fillMilestoneFields(null);
       }
       document.getElementById('modal').classList.add('show');
       setTimeout(() => document.getElementById('pLocation').focus(), 100);
@@ -2135,7 +2184,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
       const date = document.getElementById('pDate').value;
       const note = document.getElementById('pNote').value.trim();
       const locInput = document.getElementById('pLocation').value.trim();
-      const milestones = readMilestones();
+      const ms = readMilestones();
 
       if (!name) return showToast('请输入项目名称');
       if (isNaN(lng) || isNaN(lat)) return showToast('请先输入位置（城市/区县名）或在地图上点选');
@@ -2143,9 +2192,9 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
       const loc = curLocLabel || locInput || null;
       if (editingId) {
         const p = projects.find(x => x.id === editingId);
-        Object.assign(p, { name, lng, lat, status, manager, date, note, loc }, milestones);
+        Object.assign(p, { name, lng, lat, status, manager, date, note, loc }, ms);
       } else {
-        projects.push(Object.assign({ id: Date.now().toString(), name, lng, lat, status, manager, date, note, loc }, milestones));
+        projects.push(Object.assign({ id: Date.now().toString(), name, lng, lat, status, manager, date, note, loc }, ms));
       }
 
       saveProjects();
@@ -2198,6 +2247,19 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
           <button class="opt-del" onclick="removeManager('${m.name}')">删除</button>
         </div>`;
       }).join('') : '<div class="opt-hint">暂无筹建经理，可在下方添加。</div>';
+
+      const msl = document.getElementById('milestoneOptList');
+      msl.innerHTML = milestones.length ? milestones.map((m, i) => {
+        const n = projects.filter(p => p[m.key]).length;
+        return `<div class="opt-row">
+          <span class="opt-name">${esc(m.label)}</span>
+          <span class="opt-count">${n} 个已填</span>
+          <button class="opt-del" onclick="moveMilestone(${i},-1)" ${i === 0 ? 'disabled' : ''}>↑</button>
+          <button class="opt-del" onclick="moveMilestone(${i},1)" ${i === milestones.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="opt-del" onclick="renameMilestone(${i})">改名</button>
+          <button class="opt-del" onclick="removeMilestone(${i})">删除</button>
+        </div>`;
+      }).join('') : '<div class="opt-hint">暂无节点，可在下方添加或套用行业预设。</div>';
     }
 
     function addStatus() {
@@ -2273,12 +2335,79 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
       showToast('已删除');
     }
 
+    /* ---- 项目节点管理 ---- */
+    function addMilestone() {
+      if (!requireEdit()) return;
+      const input = document.getElementById('newMilestoneName');
+      let label = input.value.trim();
+      if (!label) return showToast('请输入节点名称');
+      if (!/日期|日$/.test(label)) label += '日期';
+      if (milestones.some(m => m.label === label)) return showToast('该节点已存在');
+      milestones.push({ key: 'm' + Date.now().toString(36), label });
+      saveMilestones();
+      input.value = '';
+      renderMilestoneFields();
+      renderOptionLists();
+      showToast('已添加节点：' + label);
+    }
+
+    function renameMilestone(i) {
+      if (!requireEdit()) return;
+      const m = milestones[i];
+      if (!m) return;
+      const v = prompt('节点名称（结尾会自动补「日期」）', m.label);
+      if (v === null) return;
+      let label = v.trim();
+      if (!label) return showToast('名称不能为空');
+      if (!/日期|日$/.test(label)) label += '日期';
+      m.label = label;
+      saveMilestones();
+      renderMilestoneFields();
+      renderOptionLists();
+      showToast('已改名');
+    }
+
+    function moveMilestone(i, dir) {
+      if (!requireEdit()) return;
+      const j = i + dir;
+      if (j < 0 || j >= milestones.length) return;
+      const t = milestones[i]; milestones[i] = milestones[j]; milestones[j] = t;
+      saveMilestones();
+      renderMilestoneFields();
+      renderOptionLists();
+    }
+
+    function removeMilestone(i) {
+      if (!requireEdit()) return;
+      const m = milestones[i];
+      if (!m) return;
+      const used = projects.filter(p => p[m.key]).length;
+      if (!confirm(`确定删除节点「${m.label}」？${used ? `有 ${used} 个项目填过这个日期，删除后不再显示；数据仍保留，把同名节点加回来还能看到。` : ''}`)) return;
+      milestones.splice(i, 1);
+      saveMilestones();
+      renderMilestoneFields();
+      renderOptionLists();
+      showToast('已删除节点');
+    }
+
+    function applyMilestonePreset(key) {
+      if (!requireEdit()) return;
+      const p = INDUSTRY_PRESETS[key];
+      if (!p) return;
+      if (!confirm(`套用「${p.name}」预设，节点将替换为 ${p.items.length} 个：\n${p.items.map(x => '· ' + x.label).join('\n')}\n\n项目上已填的日期不会丢，确定继续？`)) return;
+      milestones = JSON.parse(JSON.stringify(p.items));
+      saveMilestones();
+      renderMilestoneFields();
+      renderOptionLists();
+      showToast('已套用预设：' + p.name);
+    }
+
     /* ================= 备份 / 导入 ================= */
     function exportData() {
       const payload = {
-        version: 2,
+        version: 3,
         exportedAt: new Date().toISOString(),
-        projects, statuses, managers
+        projects, statuses, managers, milestones
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -2287,7 +2416,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
       a.download = `hotel-projects-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      showToast('备份已导出（含状态与经理配置）');
+      showToast('备份已导出（含状态 / 经理 / 节点配置）');
     }
 
     function importData(input) {
@@ -2307,10 +2436,12 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
               managers = data.managers.map((m, i) => typeof m === 'string'
                 ? { name: m, color: MANAGER_PALETTE[i % MANAGER_PALETTE.length] } : m);
             }
+            if (Array.isArray(data.milestones) && data.milestones.length) milestones = data.milestones;
           } else {
             throw new Error('格式错误');
           }
-          saveProjects(); saveStatuses(); saveManagers();
+          saveProjects(); saveStatuses(); saveManagers(); saveMilestones();
+          renderMilestoneFields();
           renderAll();
           showToast('导入成功，共 ' + projects.length + ' 个项目');
         } catch (err) {
@@ -2327,7 +2458,9 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
       projects = JSON.parse(JSON.stringify(DEFAULT_PROJECTS));
       statuses = JSON.parse(JSON.stringify(DEFAULT_STATUSES));
       managers = JSON.parse(JSON.stringify(DEFAULT_MANAGERS));
-      saveProjects(); saveStatuses(); saveManagers();
+      milestones = JSON.parse(JSON.stringify(DEFAULT_MILESTONES));
+      saveProjects(); saveStatuses(); saveManagers(); saveMilestones();
+      renderMilestoneFields();
       renderAll();
       showToast('已重置为示例数据');
     }

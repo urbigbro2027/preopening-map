@@ -1,5 +1,5 @@
 /* 酒店筹建地图 - Service Worker：缓存应用外壳，离线也能打开 */
-const CACHE = 'hotel-map-v19';
+const CACHE = 'hotel-map-v20';
 const ASSETS = [
   './',
   './index.html',
