@@ -428,7 +428,7 @@
         <div id="milestoneFields" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"></div>
         <div class="form-group">
           <label>备注</label>
-          <textarea id="pNote" rows="3" placeholder="房间数、预计开业时间等"></textarea>
+          <textarea id="pNote" rows="3" placeholder="面积 / 房间数、预计开业时间等"></textarea>
         </div>
         <button class="btn btn-link" onclick="openOptions()">⚙ 增删改状态 / 经理 / 节点</button>
       </div>
@@ -445,12 +445,26 @@
     <div class="modal">
       <div class="modal-header">管理选项</div>
       <div class="modal-body">
+        <div class="opt-section" style="background:#f6f8ff;border:1px solid #dbe4ff;border-radius:8px;padding:12px;">
+          <div class="opt-title">行业模板（状态 + 节点一键切换）</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+            <button class="btn btn-primary" onclick="applyIndustryTemplate('hotel')">酒店 / 网吧</button>
+            <button class="btn btn-primary" onclick="applyIndustryTemplate('fnb')">餐饮 / 奶茶</button>
+            <button class="btn btn-primary" onclick="applyIndustryTemplate('retail')">零售 / 便利店</button>
+          </div>
+          <div class="opt-hint" style="margin-top:8px;">项目数据完全不动，只换状态的显示名和节点字段。想细调就往下单独改状态或节点。</div>
+        </div>
         <div class="opt-section">
           <div class="opt-title">项目状态</div>
           <div id="statusOptList"></div>
           <div class="opt-add">
             <input type="text" id="newStatusName" placeholder="新增状态，如：在营店 / 暂停">
             <button class="btn btn-primary" style="flex-shrink:0;" onclick="addStatus()">添加</button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
+            <button class="btn btn-secondary" onclick="applyStatusPreset('hotel')">酒店</button>
+            <button class="btn btn-secondary" onclick="applyStatusPreset('fnb')">餐饮</button>
+            <button class="btn btn-secondary" onclick="applyStatusPreset('retail')">零售</button>
           </div>
         </div>
         <div class="opt-section">
@@ -646,30 +660,62 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
        新增节点只要在这里加一行，并在表单里补一个 input 即可。 */
     /* 项目节点：可配置。按行业预设一键切换，也可自行增删改排序。 */
     const K_MILESTONES = 'hotel_dev_milestones';
+    /* 标准状态的固定 key：行业模板只改显示名，不动 key，保证已有项目不脱钩 */
+    const STD_STATUS_KEYS = ['planning', 'contract', 'construction', 'operating', 'open'];
     const INDUSTRY_PRESETS = {
-      hotel: { name: '酒店 / 网吧', items: [
-        { key: 'surveyDate', label: '踏勘日期' },
-        { key: 'weakStart',  label: '弱电施工日期' },
-        { key: 'shipDate',   label: '设备发货日期' },
-        { key: 'weakDone',   label: '弱电完工日期' },
-        { key: 'finishDate', label: '筹建完工日期' }
-      ]},
-      fnb: { name: '餐饮 / 奶茶', items: [
-        { key: 'designDate', label: '设计定稿日期' },
-        { key: 'buildStart', label: '进场装修日期' },
-        { key: 'equipDate',  label: '设备进场日期' },
-        { key: 'acceptDate', label: '验收日期' },
-        { key: 'openDate',   label: '开业日期' }
-      ]},
-      retail: { name: '零售 / 便利店', items: [
-        { key: 'siteDate',   label: '选址确认日期' },
-        { key: 'designDate', label: '设计定稿日期' },
-        { key: 'buildStart', label: '装修进场日期' },
-        { key: 'shelfDate',  label: '货架进场日期' },
-        { key: 'openDate',   label: '开业日期' }
-      ]}
+      hotel: {
+        name: '酒店 / 网吧',
+        milestones: [
+          { key: 'surveyDate', label: '踏勘日期' },
+          { key: 'weakStart',  label: '弱电施工日期' },
+          { key: 'shipDate',   label: '设备发货日期' },
+          { key: 'weakDone',   label: '弱电完工日期' },
+          { key: 'finishDate', label: '筹建完工日期' }
+        ],
+        statuses: [
+          { key: 'planning',     text: '意向洽谈', color: '#fa8c16' },
+          { key: 'contract',     text: '已签约',   color: '#ff4d4f' },
+          { key: 'construction', text: '筹建中',   color: '#52c41a' },
+          { key: 'operating',    text: '在营店',   color: '#1890ff' },
+          { key: 'open',         text: '已开业',   color: '#722ed1' }
+        ]
+      },
+      fnb: {
+        name: '餐饮 / 奶茶',
+        milestones: [
+          { key: 'designDate', label: '设计定稿日期' },
+          { key: 'buildStart', label: '进场装修日期' },
+          { key: 'equipDate',  label: '设备进场日期' },
+          { key: 'acceptDate', label: '验收日期' },
+          { key: 'openDate',   label: '开业日期' }
+        ],
+        statuses: [
+          { key: 'planning',     text: '选址中', color: '#fa8c16' },
+          { key: 'contract',     text: '已签约', color: '#ff4d4f' },
+          { key: 'construction', text: '装修中', color: '#52c41a' },
+          { key: 'operating',    text: '试营业', color: '#1890ff' },
+          { key: 'open',         text: '已开业', color: '#722ed1' }
+        ]
+      },
+      retail: {
+        name: '零售 / 便利店',
+        milestones: [
+          { key: 'siteDate',   label: '选址确认日期' },
+          { key: 'designDate', label: '设计定稿日期' },
+          { key: 'buildStart', label: '装修进场日期' },
+          { key: 'shelfDate',  label: '货架进场日期' },
+          { key: 'openDate',   label: '开业日期' }
+        ],
+        statuses: [
+          { key: 'planning',     text: '选址中', color: '#fa8c16' },
+          { key: 'contract',     text: '已签约', color: '#ff4d4f' },
+          { key: 'construction', text: '装修中', color: '#52c41a' },
+          { key: 'operating',    text: '备货中', color: '#1890ff' },
+          { key: 'open',         text: '已开业', color: '#722ed1' }
+        ]
+      }
     };
-    const DEFAULT_MILESTONES = JSON.parse(JSON.stringify(INDUSTRY_PRESETS.hotel.items));
+    const DEFAULT_MILESTONES = JSON.parse(JSON.stringify(INDUSTRY_PRESETS.hotel.milestones));
     let milestones = JSON.parse(JSON.stringify(DEFAULT_MILESTONES));
 
     function loadMilestones() {
@@ -2394,12 +2440,53 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
       if (!requireEdit()) return;
       const p = INDUSTRY_PRESETS[key];
       if (!p) return;
-      if (!confirm(`套用「${p.name}」预设，节点将替换为 ${p.items.length} 个：\n${p.items.map(x => '· ' + x.label).join('\n')}\n\n项目上已填的日期不会丢，确定继续？`)) return;
-      milestones = JSON.parse(JSON.stringify(p.items));
+      if (!confirm(`套用「${p.name}」预设，节点将替换为 ${p.milestones.length} 个：\n${p.milestones.map(x => '· ' + x.label).join('\n')}\n\n项目上已填的日期不会丢，确定继续？`)) return;
+      milestones = JSON.parse(JSON.stringify(p.milestones));
       saveMilestones();
       renderMilestoneFields();
       renderOptionLists();
       showToast('已套用预设：' + p.name);
+    }
+
+    /* 状态预设：只替换 5 个标准 key 的显示名和颜色，自定义状态原样保留，
+       所以项目上的 status 值不会失效。 */
+    function applyStatusPreset(key) {
+      if (!requireEdit()) return;
+      const p = INDUSTRY_PRESETS[key];
+      if (!p) return;
+      if (!confirm(`套用「${p.name}」状态：\n${p.statuses.map(x => '· ' + x.text).join('\n')}\n\n项目现有状态不会变，只是显示名跟着换；你自己加的状态会保留。确定继续？`)) return;
+      const custom = statuses.filter(s => STD_STATUS_KEYS.indexOf(s.key) < 0);
+      statuses = JSON.parse(JSON.stringify(p.statuses)).concat(custom);
+      saveStatuses();
+      renderOptionLists();
+      renderLegend();
+      renderFilterRow();
+      renderSelects();
+      renderAll();
+      showToast('已套用状态：' + p.name);
+    }
+
+    /* 行业模板：状态 + 节点一起切 */
+    function applyIndustryTemplate(key) {
+      if (!requireEdit()) return;
+      const p = INDUSTRY_PRESETS[key];
+      if (!p) return;
+      if (!confirm(`套用「${p.name}」行业模板？\n\n状态：${p.statuses.map(x => x.text).join(' / ')}\n节点：${p.milestones.map(x => x.label.replace('日期', '')).join(' → ')}\n\n项目数据不受影响，只是显示名和节点跟着换。`)) return;
+
+      milestones = JSON.parse(JSON.stringify(p.milestones));
+      saveMilestones();
+
+      const custom = statuses.filter(s => STD_STATUS_KEYS.indexOf(s.key) < 0);
+      statuses = JSON.parse(JSON.stringify(p.statuses)).concat(custom);
+      saveStatuses();
+
+      renderMilestoneFields();
+      renderOptionLists();
+      renderLegend();
+      renderFilterRow();
+      renderSelects();
+      renderAll();
+      showToast('已套用行业模板：' + p.name);
     }
 
     /* ================= 备份 / 导入 ================= */
@@ -2413,7 +2500,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `hotel-projects-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `preopening-map-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
       showToast('备份已导出（含状态 / 经理 / 节点配置）');
