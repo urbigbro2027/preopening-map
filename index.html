@@ -327,7 +327,7 @@
     <div class="legend" id="legend"></div>
     <div id="sidebar">
       <div class="header">
-        <h1>酒店筹建地图</h1>
+        <h1>项目筹建管理地图</h1>
         <p>实时追踪各区域签约与筹建进度</p>
       </div>
       <div class="databar" id="dataBar">
@@ -880,7 +880,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
       }
       try {
         const h = await window.showSaveFilePicker({
-          suggestedName: '酒店筹建地图-备份.json',
+          suggestedName: '项目筹建管理地图-备份.json',
           types: [{ description: '数据备份', accept: { 'application/json': ['.json'] } }]
         });
         fileHandle = h;
@@ -2375,7 +2375,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
     function addExportHead() {
       const el = document.createElement('div');
       el.id = 'exportHead';
-      el.innerHTML = `<div class="eh-title">酒店筹建地图</div>` +
+      el.innerHTML = `<div class="eh-title">项目筹建管理地图</div>` +
         `<div class="eh-sub">截至 ${todayStr()} · ${summaryText()}</div>`;
       document.getElementById('map').appendChild(el);
       return el;
@@ -2465,7 +2465,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
           meta: canvas.width + ' × ' + canvas.height,
           imgSrc: canvas.toDataURL('image/png'),
           blob: blob,
-          filename: `酒店筹建地图-${todayStr()}.png`,
+          filename: `项目筹建管理地图-${todayStr()}.png`,
           isImage: true
         });
       } catch (err) {
@@ -2546,7 +2546,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
           caption: '下面是第 1 页（地图）预览，完整 PDF 请点下方「下载文件」',
           imgSrc: mapCanvas.toDataURL('image/jpeg', 0.85),
           blob: pdf.output('blob'),
-          filename: `酒店筹建地图-${todayStr()}.pdf`,
+          filename: `项目筹建管理地图-${todayStr()}.pdf`,
           isImage: false
         });
       } catch (err) {
@@ -2651,7 +2651,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
           const n = list.filter(p => (p.manager || '') === m.name).length;
           return n ? `${m.name} ${n}` : '';
         }).filter(Boolean).join(' · ');
-      return `【酒店筹建地图】${todayStr()}\n`
+      return `【项目筹建管理地图】${todayStr()}\n`
         + `在跟项目 ${list.length} 个${filtered ? '（当前筛选）' : ''}\n`
         + `${byStatus}\n`
         + (byMgr ? `负责人：${byMgr}\n` : '')
@@ -2734,7 +2734,7 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
       if (!shareBlob) return showToast('请先点「生成地图图片」');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(shareBlob);
-      a.download = `酒店筹建地图-${todayStr()}.png`;
+      a.download = `项目筹建管理地图-${todayStr()}.png`;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
@@ -2752,9 +2752,9 @@ const GEO_DISTRICTS=[["东城区","北京市","北京",116.4188,39.9175],["西�
 
     async function shareSystem() {
       try {
-        const payload = { title: '酒店筹建地图', text: briefText() };
+        const payload = { title: '项目筹建管理地图', text: briefText() };
         if (shareBlob) {
-          const f = new File([shareBlob], `酒店筹建地图-${todayStr()}.png`, { type: 'image/png' });
+          const f = new File([shareBlob], `项目筹建管理地图-${todayStr()}.png`, { type: 'image/png' });
           if (navigator.canShare && navigator.canShare({ files: [f] })) payload.files = [f];
         }
         await navigator.share(payload);

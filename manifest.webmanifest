@@ -1,7 +1,7 @@
 {
-  "name": "酒店筹建地图",
+  "name": "项目筹建管理地图",
   "short_name": "筹建地图",
-  "description": "实时追踪各区域酒店签约与筹建进度",
+  "description": "实时追踪各区域门店签约与筹建进度",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
